@@ -43,14 +43,31 @@ public class Project2 {
 
                                 String message;
                                 while(true){
-                                    message = inStream.readLine();
+                                    message = inStream.readLine().trim();
+                                    String parts[] = message.split("\\s*(,|\\s)\\s*");
                                     System.out.println("Client: "+message);
-                                    if(message.contains("submit") && message.contains(",")){
-                                        String parts[] = message.split("\\s*(,|\\s)\\s*");
+                                    if(parts.length>0 && parts[0].equals("submit") && message.contains(",")){
                                         map.put(parts[1], parts[2]);
                                         System.out.println("entry saved, map size="+map.size());
                                         outStream.println("OK");
                                         outStream.flush();
+                                    }
+                                    else if(parts.length>0 && parts[0].equals("get")){
+                                        String key = message.substring(message.indexOf(' '),message.length());
+                                        if(map.containsKey(key)){
+                                            String value = map.get(key);
+                                            outStream.println(value);
+                                            outStream.flush();
+                                            System.out.format("Entry found for key %s -> %s\n",key, value );
+                                        }
+                                        else{
+                                            outStream.println("No stored value for " + key);
+                                            outStream.flush();
+                                            System.out.println("No stored value for " + key);
+                                        }
+                                    }
+                                    else{
+                                        System.out.println("Client message has wrong format: " +message);
                                     }
                                 }
 
@@ -76,11 +93,15 @@ public class Project2 {
 
                     String message, response;
                     while (true){
-                        message = scanner.nextLine();
+                        message = scanner.nextLine().trim();
                         String parts[] = message.split("\\s*(,|\\s)\\s*");
                         if(!parts[0].equals("submit") && !parts[0].equals("get")){
                             System.out.print("Error: wrong command format: " + parts.length);
                             System.out.println(Arrays.asList(parts).toString());
+                            continue;
+                        }
+                        if(parts[0].equals("submit") && !message.contains(",")){
+                            System.out.println("Use comma between key and value that you submit");
                             continue;
                         }
 
@@ -90,7 +111,7 @@ public class Project2 {
                             try {
                                 response = inStream.readLine();
                                 if (parts[0].equals("submit") && response.equals("OK")) {
-                                    System.out.format("Successfully submitted <%s, %s> to server at IP address of %s"
+                                    System.out.format("Successfully submitted <%s, %s> to server at IP address of %s\n"
                                             , parts[1], parts[2], SERVER_ADDRESS);
                                     break;
                                 }
