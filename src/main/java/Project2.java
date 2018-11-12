@@ -27,7 +27,39 @@ public class Project2 {
         if(conType == 0){
             // Server
             if(mode == 0){
+                try {
+                    ServerSocket serverSocket = new ServerSocket(SERVER_PORT);
+                    HashMap<String, String> map = new HashMap<>();
+                    while(true){
+                        Socket socket = serverSocket.accept();
+                        new Thread(() -> {
+                            try {
+                                BufferedReader inStream = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                                PrintWriter outStream = new PrintWriter(socket.getOutputStream());
 
+                                String message;
+                                while(true){
+                                    message = inStream.readLine();
+                                    System.out.println("Client: "+message);
+                                    if(message.contains("submit") && message.contains(",")){
+                                        String parts[] = message.split(",\\s*");
+                                        map.put(parts[1], parts[2]);
+                                        System.out.println("entry saved, map size="+map.size());
+                                        outStream.println("OK");
+                                        outStream.flush();
+                                    }
+                                }
+
+
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+
+                        }).start();
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
 
             // Client
