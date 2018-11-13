@@ -41,24 +41,26 @@ public class Project2 {
                                 BufferedReader inStream = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                                 PrintWriter outStream = new PrintWriter(socket.getOutputStream());
 
-                                String message;
+                                String message, command, key, value;
                                 while(true){
                                     message = inStream.readLine().trim();
-                                    String parts[] = message.split("\\s*(,|\\s)\\s*");
                                     System.out.println("Client: "+message);
-                                    if(parts.length>0 && parts[0].equals("submit") && message.contains(",")){
-                                        map.put(parts[1], parts[2]);
-                                        System.out.println("entry saved, map size="+map.size());
+                                    command = message.substring(0,message.indexOf(' ')).trim();
+                                    if(command.equals("submit") && message.contains(",")){
+                                        key = message.substring(message.indexOf(' '),message.indexOf(',')).trim();
+                                        value =  message.substring(message.indexOf(',')+1,message.length()).trim();
+                                        map.put(key, value);
+                                        System.out.format("<%s,%s> saved, map size=%d\n",key,value,map.size());
                                         outStream.println("OK");
                                         outStream.flush();
                                     }
-                                    else if(parts.length>0 && parts[0].equals("get")){
-                                        String key = message.substring(message.indexOf(' '),message.length());
+                                    else if(command.equals("get")){
+                                        key = message.substring(message.indexOf(' '),message.length()).trim();
                                         if(map.containsKey(key)){
-                                            String value = map.get(key);
+                                            value = map.get(key);
                                             outStream.println(value);
                                             outStream.flush();
-                                            System.out.format("Entry found for key %s -> %s\n",key, value );
+                                            System.out.format("Entry found <%s,%s>\n",key, value );
                                         }
                                         else{
                                             outStream.println("No stored value for " + key);
@@ -91,16 +93,16 @@ public class Project2 {
                     BufferedReader inStream = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                     PrintWriter outStream = new PrintWriter(socket.getOutputStream());
 
-                    String message, response;
+                    String message, response, command, key, value;
                     while (true){
+                        System.out.print("Type:");
                         message = scanner.nextLine().trim();
-                        String parts[] = message.split("\\s*(,|\\s)\\s*");
-                        if(!parts[0].equals("submit") && !parts[0].equals("get")){
-                            System.out.print("Error: wrong command format: " + parts.length);
-                            System.out.println(Arrays.asList(parts).toString());
+                        command = message.substring(0,message.indexOf(' ')).trim();
+                        if(!command.equals("submit") && !command.equals("get")){
+                            System.out.print("Error: wrong command format: " + command);
                             continue;
                         }
-                        if(parts[0].equals("submit") && !message.contains(",")){
+                        if(command.equals("submit") && !message.contains(",")){
                             System.out.println("Use comma between key and value that you submit");
                             continue;
                         }
@@ -110,12 +112,14 @@ public class Project2 {
                             outStream.flush();
                             try {
                                 response = inStream.readLine();
-                                if (parts[0].equals("submit") && response.equals("OK")) {
-                                    System.out.format("Successfully submitted <%s, %s> to server at IP address of %s\n"
-                                            , parts[1], parts[2], SERVER_ADDRESS);
+                                if (command.equals("submit") && response.equals("OK")) {
+                                    key = message.substring(message.indexOf(' '),message.indexOf(',')).trim();
+                                    value =  message.substring(message.indexOf(',')+1,message.length()).trim();
+                                    System.out.format("Successfully submitted <%s,%s> to server at IP address of %s\n"
+                                            , key, value, SERVER_ADDRESS);
                                     break;
                                 }
-                                else if(parts[0].equals("get")){
+                                else if(command.equals("get")){
                                     System.out.println("Server: "+response);
                                     break;
                                 }
