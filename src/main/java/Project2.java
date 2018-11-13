@@ -19,15 +19,21 @@ public class Project2 {
     public static final String SERVER_ADDRESS = "localhost";
 
     public static void main(String[] arg){
-        System.out.println("Write s for Server , c for Client");
-        String mode = scanner.nextLine();
+        String mode = "";
+        while(!mode.equals("s") && !mode.equals("c")) {
+            System.out.println("Write s for Server , c for Client");
+            mode = scanner.nextLine();
+        }
 
-        System.out.println("Write t for TCP , s for SSL");
-        String conType = scanner.nextLine();
+        String conType = "";
+        while(!conType.equals("s") && !conType.equals("t")) {
+            System.out.println("Write t for TCP , s for SSL");
+            conType = scanner.nextLine();
+        }
 
-// TCP -----------------------------------------------------------------------------------
+        // TODO close connections and save current map to txt.
         if(conType.equals("t")){
-            // Server
+// TCP Server ----------------------------------------------------------------------------------------------------------------
             if(mode.equals("s")){
                 try {
                     ServerSocket serverSocket = new ServerSocket(SERVER_PORT);
@@ -85,7 +91,7 @@ public class Project2 {
                 }
             }
 
-            // Client
+// TCP Client ---------------------------------------------------------------------------------------
             else if(mode.equals("c")){
                 try {
                     Socket socket =new Socket(SERVER_ADDRESS, SERVER_PORT);
@@ -134,6 +140,17 @@ public class Project2 {
                 }
             }
 
+        }
+        else if(conType.equals("s")){
+// SSL Server ----------------------------------------------------------------------------------------------------------------
+            if(mode.equals("s")){
+
+            }
+
+// SSL Client ----------------------------------------------------------------------------------------------------------------
+            else if(mode.equals("c")){
+
+            }
         }
 
     }
