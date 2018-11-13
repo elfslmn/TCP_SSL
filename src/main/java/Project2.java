@@ -1,13 +1,22 @@
 import java.io.BufferedReader;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.security.KeyStore;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Scanner;
+
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.SSLServerSocketFactory;
+import javax.net.ssl.SSLSocket;
 
 /**
  * Created by esalman17 on 12.11.2018.
@@ -17,6 +26,8 @@ public class Project2 {
     public static Scanner scanner = new Scanner(System.in);
     public static final int SERVER_PORT = 4444;
     public static final String SERVER_ADDRESS = "localhost";
+
+    static HashMap<String, String> map = new HashMap<>();
 
     public static void main(String[] arg){
         String mode = "";
@@ -38,47 +49,12 @@ public class Project2 {
                 try {
                     ServerSocket serverSocket = new ServerSocket(SERVER_PORT);
                     System.out.println("Waiting connections...");
-                    HashMap<String, String> map = new HashMap<>();
                     while(true){
                         Socket socket = serverSocket.accept();
                         new Thread(() -> {
                             System.out.println("New connection established.");
                             try {
-                                BufferedReader inStream = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                                PrintWriter outStream = new PrintWriter(socket.getOutputStream());
-
-                                String message, command, key, value;
-                                while(true){
-                                    message = inStream.readLine().trim();
-                                    System.out.println("Client: "+message);
-                                    command = message.substring(0,message.indexOf(' ')).trim();
-                                    if(command.equals("submit") && message.contains(",")){
-                                        key = message.substring(message.indexOf(' '),message.indexOf(',')).trim();
-                                        value =  message.substring(message.indexOf(',')+1,message.length()).trim();
-                                        map.put(key, value);
-                                        System.out.format("<%s,%s> saved, map size=%d\n",key,value,map.size());
-                                        outStream.println("OK");
-                                        outStream.flush();
-                                    }
-                                    else if(command.equals("get")){
-                                        key = message.substring(message.indexOf(' '),message.length()).trim();
-                                        if(map.containsKey(key)){
-                                            value = map.get(key);
-                                            outStream.println(value);
-                                            outStream.flush();
-                                            System.out.format("Entry found <%s,%s>\n",key, value );
-                                        }
-                                        else{
-                                            outStream.println("No stored value for " + key);
-                                            outStream.flush();
-                                            System.out.println("No stored value for " + key);
-                                        }
-                                    }
-                                    else{
-                                        System.out.println("Client message has wrong format: " +message);
-                                    }
-                                }
-
+                               serverLoop(socket);
 
                             } catch (IOException e) {
                                 e.printStackTrace();
@@ -96,44 +72,7 @@ public class Project2 {
                 try {
                     Socket socket =new Socket(SERVER_ADDRESS, SERVER_PORT);
                     socket.setSoTimeout(2000);
-                    BufferedReader inStream = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                    PrintWriter outStream = new PrintWriter(socket.getOutputStream());
-
-                    String message, response, command, key, value;
-                    while (true){
-                        System.out.print("Type:");
-                        message = scanner.nextLine().trim();
-                        command = message.substring(0,message.indexOf(' ')).trim();
-                        if(!command.equals("submit") && !command.equals("get")){
-                            System.out.print("Error: wrong command format: " + command);
-                            continue;
-                        }
-                        if(command.equals("submit") && !message.contains(",")){
-                            System.out.println("Use comma between key and value that you submit");
-                            continue;
-                        }
-
-                        while(true) {
-                            outStream.println(message);
-                            outStream.flush();
-                            try {
-                                response = inStream.readLine();
-                                if (command.equals("submit") && response.equals("OK")) {
-                                    key = message.substring(message.indexOf(' '),message.indexOf(',')).trim();
-                                    value =  message.substring(message.indexOf(',')+1,message.length()).trim();
-                                    System.out.format("Successfully submitted <%s,%s> to server at IP address of %s\n"
-                                            , key, value, SERVER_ADDRESS);
-                                    break;
-                                }
-                                else if(command.equals("get")){
-                                    System.out.println("Server: "+response);
-                                    break;
-                                }
-                            } catch (SocketTimeoutException e) {
-                                System.out.println("Timeout: Resending");
-                            }
-                        }
-                    }
+                    clientLoop(socket);
 
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -141,17 +80,132 @@ public class Project2 {
             }
 
         }
+
         else if(conType.equals("s")){
 // SSL Server ----------------------------------------------------------------------------------------------------------------
-            if(mode.equals("s")){
+            final String SERVER_KEYSTORE_FILE = "elif.jks";
+            final String SERVER_KEYSTORE_PASSWORD = "storepass";
+            final String SERVER_KEY_PASSWORD = "keypass";
 
+            if(mode.equals("s")){
+                SSLServerSocket sslServerSocket;
+                SSLServerSocketFactory sslServerSocketFactory;
+
+                try {
+                    SSLContext sslContext = SSLContext.getInstance("TLS");
+                    KeyStore keyStore = KeyStore.getInstance("JKS");
+                    char ksPass[] = SERVER_KEYSTORE_PASSWORD.toCharArray();
+                    keyStore.load(new FileInputStream(SERVER_KEYSTORE_FILE), ksPass);
+                    KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance("SunX509");
+                    keyManagerFactory.init(keyStore, SERVER_KEY_PASSWORD.toCharArray());
+                    sslContext.init(keyManagerFactory.getKeyManagers(), null, null);
+
+                    sslServerSocketFactory = sslContext.getServerSocketFactory();
+                    sslServerSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(SERVER_PORT);
+
+                    while(true) {
+                        SSLSocket socket = (SSLSocket) sslServerSocket.accept();
+                        new Thread(() -> {
+                            System.out.println("New SSL connection established.");
+                            try {
+                                serverLoop(socket);
+
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }).start();
+                    }
+
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                
             }
 
 // SSL Client ----------------------------------------------------------------------------------------------------------------
             else if(mode.equals("c")){
-
+                //TODO
             }
         }
 
+    }
+
+    private static void serverLoop(Socket socket) throws IOException {
+        BufferedReader inStream = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        PrintWriter outStream = new PrintWriter(socket.getOutputStream());
+
+        String message, command, key, value;
+        while(true){
+            message = inStream.readLine().trim();
+            System.out.println("Client: "+message);
+            command = message.substring(0,message.indexOf(' ')).trim();
+            if(command.equals("submit") && message.contains(",")){
+                key = message.substring(message.indexOf(' '),message.indexOf(',')).trim();
+                value =  message.substring(message.indexOf(',')+1,message.length()).trim();
+                map.put(key, value);
+                System.out.format("<%s,%s> saved, map size=%d\n",key,value,map.size());
+                outStream.println("OK");
+                outStream.flush();
+            }
+            else if(command.equals("get")){
+                key = message.substring(message.indexOf(' '),message.length()).trim();
+                if(map.containsKey(key)){
+                    value = map.get(key);
+                    outStream.println(value);
+                    outStream.flush();
+                    System.out.format("Entry found <%s,%s>\n",key, value );
+                }
+                else{
+                    outStream.println("No stored value for " + key);
+                    outStream.flush();
+                    System.out.println("No stored value for " + key);
+                }
+            }
+            else{
+                System.out.println("Client message has wrong format: " +message);
+            }
+        }
+    }
+
+    private static void clientLoop(Socket socket) throws IOException {
+        BufferedReader inStream = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        PrintWriter outStream = new PrintWriter(socket.getOutputStream());
+
+        String message, response, command, key, value;
+        while (true){
+            System.out.print("Type:");
+            message = scanner.nextLine().trim();
+            command = message.substring(0,message.indexOf(' ')).trim();
+            if(!command.equals("submit") && !command.equals("get")){
+                System.out.print("Error: wrong command format: " + command);
+                continue;
+            }
+            if(command.equals("submit") && !message.contains(",")){
+                System.out.println("Use comma between key and value that you submit");
+                continue;
+            }
+
+            while(true) {
+                outStream.println(message);
+                outStream.flush();
+                try {
+                    response = inStream.readLine();
+                    if (command.equals("submit") && response.equals("OK")) {
+                        key = message.substring(message.indexOf(' '),message.indexOf(',')).trim();
+                        value =  message.substring(message.indexOf(',')+1,message.length()).trim();
+                        System.out.format("Successfully submitted <%s,%s> to server at IP address of %s\n"
+                                , key, value, SERVER_ADDRESS);
+                        break;
+                    }
+                    else if(command.equals("get")){
+                        System.out.println("Server: "+response);
+                        break;
+                    }
+                } catch (SocketTimeoutException e) {
+                    System.out.println("Timeout: Resending");
+                }
+            }
+        }
     }
 }
