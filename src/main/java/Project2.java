@@ -17,6 +17,7 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
 
 /**
  * Created by esalman17 on 12.11.2018.
@@ -54,7 +55,9 @@ public class Project2 {
                         new Thread(() -> {
                             System.out.println("New connection established.");
                             try {
-                               serverLoop(socket);
+                                BufferedReader inStream = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                                PrintWriter outStream = new PrintWriter(socket.getOutputStream());
+                               serverLoop(inStream, outStream);
 
                             } catch (IOException e) {
                                 e.printStackTrace();
@@ -72,7 +75,10 @@ public class Project2 {
                 try {
                     Socket socket =new Socket(SERVER_ADDRESS, SERVER_PORT);
                     socket.setSoTimeout(2000);
-                    clientLoop(socket);
+
+                    BufferedReader inStream = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                    PrintWriter outStream = new PrintWriter(socket.getOutputStream());
+                    clientLoop(inStream, outStream);
 
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -83,7 +89,7 @@ public class Project2 {
 
         else if(conType.equals("s")){
 // SSL Server ----------------------------------------------------------------------------------------------------------------
-            final String SERVER_KEYSTORE_FILE = "elif.jks";
+            final String SERVER_KEYSTORE_FILE = "keystore.jks";
             final String SERVER_KEYSTORE_PASSWORD = "storepass";
             final String SERVER_KEY_PASSWORD = "keypass";
 
@@ -102,13 +108,16 @@ public class Project2 {
 
                     sslServerSocketFactory = sslContext.getServerSocketFactory();
                     sslServerSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(SERVER_PORT);
+                    System.out.println("Waiting connections...");
 
                     while(true) {
                         SSLSocket socket = (SSLSocket) sslServerSocket.accept();
                         new Thread(() -> {
                             System.out.println("New SSL connection established.");
                             try {
-                                serverLoop(socket);
+                                BufferedReader inStream = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                                PrintWriter outStream = new PrintWriter(socket.getOutputStream());
+                                serverLoop(inStream, outStream);
 
                             } catch (IOException e) {
                                 e.printStackTrace();
@@ -120,21 +129,36 @@ public class Project2 {
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-                
+
             }
 
 // SSL Client ----------------------------------------------------------------------------------------------------------------
             else if(mode.equals("c")){
-                //TODO
+                final String KEY_STORE_NAME =  "clientkeystore";
+                final String KEY_STORE_PASSWORD = "storepass";
+                System.setProperty("javax.net.ssl.trustStore", KEY_STORE_NAME);
+                System.setProperty("javax.net.ssl.trustStorePassword", KEY_STORE_PASSWORD);
+
+                try {
+                    SSLSocketFactory sslSocketFactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
+                    SSLSocket sslSocket = (SSLSocket) sslSocketFactory.createSocket(SERVER_ADDRESS, SERVER_PORT);
+                    sslSocket.startHandshake();
+
+                    BufferedReader inStream = new BufferedReader(new InputStreamReader(sslSocket.getInputStream()));
+                    PrintWriter outStream = new PrintWriter(sslSocket.getOutputStream());
+                    clientLoop(inStream, outStream);
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         }
 
     }
 
-    private static void serverLoop(Socket socket) throws IOException {
-        BufferedReader inStream = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        PrintWriter outStream = new PrintWriter(socket.getOutputStream());
 
+// Tasks --------------------------------------------------------------------------------------------------------------------
+    private static void serverLoop(BufferedReader inStream, PrintWriter outStream) throws IOException {
         String message, command, key, value;
         while(true){
             message = inStream.readLine().trim();
@@ -168,10 +192,7 @@ public class Project2 {
         }
     }
 
-    private static void clientLoop(Socket socket) throws IOException {
-        BufferedReader inStream = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        PrintWriter outStream = new PrintWriter(socket.getOutputStream());
-
+    private static void clientLoop(BufferedReader inStream, PrintWriter outStream) throws IOException {
         String message, response, command, key, value;
         while (true){
             System.out.print("Type:");
