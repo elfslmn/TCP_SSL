@@ -1,5 +1,4 @@
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -8,16 +7,12 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.security.KeyStore;
-import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Scanner;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -37,7 +32,6 @@ public class Project2 {
     public static final String SERVER_ADDRESS = "localhost";
     public static final String DATABASE_PATH = "C:/Users/esalman17/Desktop/TCP_SSL/sqlite/map.db";
 
-    static HashMap<String, String> map = new HashMap<>();
     static Connection connection = null;
 
     public static void main(String[] arg){
@@ -198,7 +192,6 @@ public class Project2 {
             if(command.equals("submit") && message.contains(",")){
                 key = message.substring(message.indexOf(' '),message.indexOf(',')).trim();
                 value =  message.substring(message.indexOf(',')+1,message.length()).trim();
-                map.put(key, value);
                 insert2Db(connection, key, value);
                 outStream.println("OK");
                 outStream.flush();
