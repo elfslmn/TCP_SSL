@@ -205,16 +205,16 @@ public class Project2 {
             }
             else if(command.equals("get")){
                 key = message.substring(message.indexOf(' '),message.length()).trim();
-                if(map.containsKey(key)){
-                    value = map.get(key);
-                    outStream.println(value);
-                    outStream.flush();
-                    System.out.format("Entry found <%s,%s>\n",key, value );
-                }
-                else{
+                value = queryDb(connection, key);
+                if(value == null){
                     outStream.println("No stored value for " + key);
                     outStream.flush();
                     System.out.println("No stored value for " + key);
+                }
+                else{
+                    outStream.println(value);
+                    outStream.flush();
+                    System.out.format("Entry found <%s,%s>\n",key, value );
                 }
             }
             else{
@@ -294,5 +294,21 @@ public class Project2 {
         }
     }
 
+    public static String queryDb(Connection conn, String key){
+        String sql = "SELECT key, value FROM pairs WHERE key = \""+key+"\"";
+        try {
+            Statement stmt = conn.createStatement();
+            ResultSet rs    = stmt.executeQuery(sql);
+            if(rs.next()){
+                return rs.getString("value");
+            }
+            else{
+                return null;
+            }
 
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
 }
