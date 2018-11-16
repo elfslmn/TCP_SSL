@@ -35,18 +35,21 @@ public class Project2 {
     static Connection connection = null;
 
     public static void main(String[] arg){
+        // 1- Get operation mode
         String mode = "";
         while(!mode.equals("s") && !mode.equals("c")) {
             System.out.println("Write s for Server , c for Client");
             mode = scanner.nextLine();
         }
 
+        // 2- Get connection type
         String conType = "";
         while(!conType.equals("s") && !conType.equals("t")) {
             System.out.println("Write t for TCP , s for SSL");
             conType = scanner.nextLine();
         }
 
+        // 3- If it is server, connect to database (create if it does not exist)
         if(mode.equals("s")){
             try {
                 connection = DriverManager.getConnection("jdbc:sqlite:"+DATABASE_PATH);
@@ -63,20 +66,22 @@ public class Project2 {
 
             } catch (SQLException e) {
                 e.printStackTrace();
+                System.out.println("Database connection is failed!");
+                return;
             }
         }
 
 
-
-        // TODO close connections and save current map to txt.
         if(conType.equals("t")){
 // TCP Server ----------------------------------------------------------------------------------------------------------------
             if(mode.equals("s")){
                 try {
+                    // Open a server socket
                     ServerSocket serverSocket = new ServerSocket(SERVER_PORT);
                     System.out.println("Waiting connections...");
                     while(true){
                         Socket socket = serverSocket.accept();
+                        // Upon new connection, start a new thread to serve to the connected client
                         new Thread(() -> {
                             System.out.println("New connection established.");
                             try {
@@ -98,7 +103,9 @@ public class Project2 {
 // TCP Client ---------------------------------------------------------------------------------------
             else if(mode.equals("c")){
                 try {
+                    // Create a socket to connect to server.
                     Socket socket =new Socket(SERVER_ADDRESS, SERVER_PORT);
+                    // Set timeout to 2sec for resending
                     socket.setSoTimeout(2000);
 
                     BufferedReader inStream = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -124,6 +131,7 @@ public class Project2 {
 
                 try {
                     SSLContext sslContext = SSLContext.getInstance("TLS");
+                    // Set key
                     KeyStore keyStore = KeyStore.getInstance("JKS");
                     char ksPass[] = SERVER_KEYSTORE_PASSWORD.toCharArray();
                     keyStore.load(new FileInputStream(SERVER_KEYSTORE_FILE), ksPass);
@@ -131,12 +139,14 @@ public class Project2 {
                     keyManagerFactory.init(keyStore, SERVER_KEY_PASSWORD.toCharArray());
                     sslContext.init(keyManagerFactory.getKeyManagers(), null, null);
 
+                    // Open a secure server socket
                     sslServerSocketFactory = sslContext.getServerSocketFactory();
                     sslServerSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(SERVER_PORT);
                     System.out.println("Waiting connections...");
 
                     while(true) {
                         SSLSocket socket = (SSLSocket) sslServerSocket.accept();
+                        // Upon new connection, start a new thread to serve to the connected client
                         new Thread(() -> {
                             System.out.println("New SSL connection established.");
                             try {
@@ -165,6 +175,7 @@ public class Project2 {
                 System.setProperty("javax.net.ssl.trustStorePassword", KEY_STORE_PASSWORD);
 
                 try {
+                    // Validate keys of client and server
                     SSLSocketFactory sslSocketFactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
                     SSLSocket sslSocket = (SSLSocket) sslSocketFactory.createSocket(SERVER_ADDRESS, SERVER_PORT);
                     sslSocket.startHandshake();
@@ -183,6 +194,17 @@ public class Project2 {
 
 
 // Tasks --------------------------------------------------------------------------------------------------------------------
+
+    /**
+     * The function that implements the jobs of the server such that:
+     * Listens the client
+     * Upon "submit" command, saves given pair to database
+     * Upon "get", retrieve the value with specified key
+     *
+     * @param inStream input stream of the client socket
+     * @param outStream output stream of the client socket
+     * @throws IOException
+     */
     private static void serverLoop(BufferedReader inStream, PrintWriter outStream) throws IOException {
         String message, command, key, value;
         while(true){
@@ -216,6 +238,14 @@ public class Project2 {
         }
     }
 
+    /**
+     * The function that implements the jobs of the server such that:
+     * Listens the user
+     * Upon "submit" and "get" command, send the specified arguments to server
+     * @param inStream input stream of the client socket
+     * @param outStream output stream of the client socket
+     * @throws IOException
+     */
     private static void clientLoop(BufferedReader inStream, PrintWriter outStream) throws IOException {
         String message, response, command, key, value;
         while (true){
@@ -253,28 +283,38 @@ public class Project2 {
             }
         }
     }
-    public static void insert2Db(Connection conn, String key, String value){
+
+    /**
+     *  Insert the given key value pair to the database.
+     *  If key already exists, updates the value.
+     * @param connection Database connection
+     * @param key key
+     * @param value value
+     */
+    public static void insert2Db(Connection connection, String key, String value){
         String sql;
         try {
-            // Check key exists already
+            // Check if key exists already
             sql = "SELECT key, value FROM pairs WHERE key = \""+key+"\"";
-            Statement stmt  = conn.createStatement();
+            Statement stmt  = connection.createStatement();
             ResultSet rs    = stmt.executeQuery(sql);
+            // Update the value if key already exists
             if(rs.next()){
                 if( rs.getString("value").equals(value) ){
                     System.out.format("Existing entry: <%s,%s>, already saved.\n", key, value);
                     return;
                 }
                 sql = "UPDATE pairs SET value = ? WHERE key = ?";
-                PreparedStatement pstmt = conn.prepareStatement(sql);
+                PreparedStatement pstmt = connection.prepareStatement(sql);
                 pstmt.setString(1,value);
                 pstmt.setString(2,key);
                 pstmt.executeUpdate();
                 System.out.format("Value for key <%s> updated as (%s) -> (%s)\n", key, rs.getString("value"), value);
             }
+            // Insert the key,value pair if key does not exists
             else{
                 sql = "INSERT INTO pairs(key,value) VALUES(?,?)";
-                PreparedStatement pstmt = conn.prepareStatement(sql);
+                PreparedStatement pstmt = connection.prepareStatement(sql);
                 pstmt.setString(1, key);
                 pstmt.setString(2, value);
                 pstmt.executeUpdate();
@@ -287,14 +327,23 @@ public class Project2 {
         }
     }
 
-    public static String queryDb(Connection conn, String key){
+    /**
+     * Retrieve the value with specified key.
+     * Return null if the key does not exist in database
+     * @param connection  Database connection
+     * @param key key
+     * @return
+     */
+    public static String queryDb(Connection connection, String key){
         String sql = "SELECT key, value FROM pairs WHERE key = \""+key+"\"";
         try {
-            Statement stmt = conn.createStatement();
+            Statement stmt = connection.createStatement();
             ResultSet rs    = stmt.executeQuery(sql);
+            //Return the value, if key exists
             if(rs.next()){
                 return rs.getString("value");
             }
+            // Return null, if key does not exists
             else{
                 return null;
             }

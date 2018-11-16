@@ -36,8 +36,8 @@ int main()
         if(ct) dst_ip << ".";
     }
 
-
     ostringstream payload;
+
     // Source port
     int src_port;
      cin >> hex >> a;
@@ -56,7 +56,7 @@ int main()
      payload << (char)a;
      dst_port += a;
 
-     // info that we dont need.
+     // Continued payload info
      ct = 16;
      while(ct--){
         cin >> hex >> a;
