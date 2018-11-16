@@ -10,5 +10,6 @@ repositories {
 }
 
 dependencies {
-    testCompile group: 'junit', name: 'junit', version: '4.11'
+    testCompile 'junit:junit:4.11'
+    implementation files('libs/sqlite-jdbc-3.23.1.jar')
 }

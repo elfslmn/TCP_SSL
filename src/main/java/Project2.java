@@ -1,4 +1,5 @@
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -8,6 +9,13 @@ import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Scanner;
@@ -25,10 +33,12 @@ import javax.net.ssl.SSLSocketFactory;
 
 public class Project2 {
     public static Scanner scanner = new Scanner(System.in);
-    public static final int SERVER_PORT = 4444;
+    public static final int SERVER_PORT = 4445;
     public static final String SERVER_ADDRESS = "localhost";
+    public static final String DATABASE_PATH = "C:/Users/esalman17/Desktop/TCP_SSL/sqlite/map.db";
 
     static HashMap<String, String> map = new HashMap<>();
+    static Connection connection = null;
 
     public static void main(String[] arg){
         String mode = "";
@@ -42,6 +52,27 @@ public class Project2 {
             System.out.println("Write t for TCP , s for SSL");
             conType = scanner.nextLine();
         }
+
+        if(mode.equals("s")){
+            try {
+                connection = DriverManager.getConnection("jdbc:sqlite:"+DATABASE_PATH);
+                if(connection == null){
+                    System.out.println("Database connection is failed!");
+                    return;
+                }
+                String sql = "CREATE TABLE IF NOT EXISTS pairs (\n"
+                        + "	key text PRIMARY KEY,\n"
+                        + "	value text NOT NULL\n"
+                        + ");";
+                Statement stmt = connection.createStatement();
+                stmt.execute(sql);
+
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+
+
 
         // TODO close connections and save current map to txt.
         if(conType.equals("t")){
@@ -168,7 +199,7 @@ public class Project2 {
                 key = message.substring(message.indexOf(' '),message.indexOf(',')).trim();
                 value =  message.substring(message.indexOf(',')+1,message.length()).trim();
                 map.put(key, value);
-                System.out.format("<%s,%s> saved, map size=%d\n",key,value,map.size());
+                insert2Db(connection, key, value);
                 outStream.println("OK");
                 outStream.flush();
             }
@@ -229,4 +260,39 @@ public class Project2 {
             }
         }
     }
+    public static void insert2Db(Connection conn, String key, String value){
+        String sql;
+        try {
+            // Check key exists already
+            sql = "SELECT key, value FROM pairs WHERE key = \""+key+"\"";
+            Statement stmt  = conn.createStatement();
+            ResultSet rs    = stmt.executeQuery(sql);
+            if(rs.next()){
+                if( rs.getString("value").equals(value) ){
+                    System.out.format("Existing entry: <%s,%s>, already saved.\n", key, value);
+                    return;
+                }
+                sql = "UPDATE pairs SET value = ? WHERE key = ?";
+                PreparedStatement pstmt = conn.prepareStatement(sql);
+                pstmt.setString(1,value);
+                pstmt.setString(2,key);
+                pstmt.executeUpdate();
+                System.out.format("Value for key <%s> updated as (%s) -> (%s)\n", key, rs.getString("value"), value);
+            }
+            else{
+                sql = "INSERT INTO pairs(key,value) VALUES(?,?)";
+                PreparedStatement pstmt = conn.prepareStatement(sql);
+                pstmt.setString(1, key);
+                pstmt.setString(2, value);
+                pstmt.executeUpdate();
+                System.out.format("New entry: <%s,%s> saved.");
+            }
+
+        } catch (SQLException e) {
+            System.out.println("Insertion failed!");
+            e.printStackTrace();
+        }
+    }
+
+
 }
